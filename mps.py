@@ -14,4 +14,4 @@ def sample(N, HW, C, F):
   return y, time.monotonic()-st
 
 if __name__ == '__main__':
-  print(sample(32, 4096, 4, 2)[1]) # y.shape: [32, 2, 4096, 4096]
+  print(sample(32, 4096, 4, 2)[1]) # y.shape: [2, 2, 4094, 4094]
