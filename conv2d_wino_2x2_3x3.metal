@@ -21,20 +21,19 @@ kernel void filter_transform(device float *out, device const float *fs, uint id 
   }
 }
 
-float4x4 load_float4x4(device const float *data, uint N, uint block_row, uint block_col) {
+float4x4 load_float4x4(device const float *data, uint D) {
   float4x4 result;
   for (uint i = 0; i < 4; i++) {
     for (uint j = 0; j < 4; j++) {
-      result[i][j] = data[(block_row*4+i)*N+(block_col*4+j)];
+      result[i][j] = data[i+j*D];
     }
   }
-  return result;
 }
 
-void write_float2x2(device float *out, uint N, uint block_row, uint block_col, float2x2 data) {
+void write_float2x2(device float *out, uint D, float2x2 data) {
   for (uint i = 0; i < 2; i++) {
     for (uint j = 0; j < 2; j++) {
-      out[(block_row*2+i)*N+(block_col*2+j)] = data[i][j];
+      out[i+D*j] = data[i][j];
     }
   }
 }
@@ -55,9 +54,9 @@ kernel void conv(device float *out,
   uint idx = gid.x*local_size.x + lid.x;
   uint idy = gid.y*local_size.y + lid.y;
 
-  ims += idx + idy * $HW;
+  ims += idx*16 + idy*$HW*16;
   fs += 0; // This could get tricky with multiple filters
-  out += idx + idy * $HW-2;
+  out += idx*16 + idy*($HW-2)*16;
 
   float4x4 acc[8][8];
   for (uint i = 0; i < 8; i++) {
@@ -67,31 +66,29 @@ kernel void conv(device float *out,
   }
 
   for (uint c = 0; c < $C; c++) {
-    float4x4 f[8][8];
-    for (uint i = 0; i < 8; i++) {
-      for (uint j = 0; j < 8; j++) {
-        f[i][j] = load_float4x4(fs, $C, i*8+j, c);
-      }
-    }
+    // TODO: handle multiple filters
+    float4x4 f = load_float4x4(fs + c*16, 4);
 
     threadgroup_barrier(mem_flags::mem_threadgroup);
 
     // input transformation, fused prod and acc with filter
     for (uint i = 0; i < 8; i++) {
       for (uint j = 0; j < 8; j++) {
-        float4x4 in = load_float4x4(ims, $HW, i, j);
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-        in[0] =  in[0] - in[2];
-        in[0] =  in[1] + in[2];
-        in[0] = -in[1] + in[2];
-        in[0] =  in[1] - in[3];
-        in = transpose(in);
-        in[0] =  in[0] - in[2];
-        in[0] =  in[1] + in[2];
-        in[0] = -in[1] + in[2];
-        in[0] =  in[1] - in[3];
-        for (uint k = 0; k < 4; k++) {
-          acc[i][j][k] = fma(in[k], f[i][j][k], acc[i][j][k]);
+        for (uint k = 0; k < 2; k++) { // overlapped block
+          float4x4 in = load_float4x4(ims + i*4+k*2 + j*4*$HW, $HW);
+          threadgroup_barrier(mem_flags::mem_threadgroup);
+          in[0] =  in[0] - in[2];
+          in[0] =  in[1] + in[2];
+          in[0] = -in[1] + in[2];
+          in[0] =  in[1] - in[3];
+          in = transpose(in);
+          in[0] =  in[0] - in[2];
+          in[0] =  in[1] + in[2];
+          in[0] = -in[1] + in[2];
+          in[0] =  in[1] - in[3];
+          for (uint k = 0; k < 4; k++) {
+            acc[i][j][k] = fma(in[k], f[i][j][k], acc[i][j][k]);
+          }
         }
       }
     }
@@ -105,7 +102,7 @@ kernel void conv(device float *out,
       float2x4 tmp1 = float2x4(tmp0[0] - tmp0[3], -tmp0[1]);
       float4x2 tmp2 = transpose(tmp1);
       float2x2 tmp3 = float2x2(tmp2[0] - tmp2[3], -tmp2[1]);
-      write_float2x2(out, $HW, i, j, tmp3);
+      write_float2x2(out + i*? + j*?, $HW-2, tmp3);
     }
   }
 }
