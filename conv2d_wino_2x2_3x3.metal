@@ -3,14 +3,14 @@
 
 using namespace metal;
 
+// fs: F, C, 3, 3
+// out: F, C, 4, 4
 kernel void filter_transform(device float *out, device const float *fs, uint id [[thread_position_in_grid]]) { 
-  // layout
-  // fs: F, C, 3, 3
-  // out: F, C, 4, 4
-
   float3x3 alu0;
-  for (uint i = 0; i < 9; i++) {
-    alu0[i] = fs[id*9+i];
+  for (uint i = 0; i < 3; i++) {
+    for (uint j = 0; j < 3; j++) {
+      alu0[j][i] = fs[id*9+i+j*3]; // tranpose on load
+    }
   }
   float4x3 alu1 = float4x3(alu0[0], 0.5*(alu0[0]+alu0[1]+alu0[2]), 0.5*(alu0[0]-alu0[1]+alu0[2]), alu0[2]);
   float3x4 alu2 = transpose(alu1);
@@ -39,25 +39,22 @@ void write_float2x2(device float *out, uint D, float2x2 data) {
   }
 }
 
+// ims: N, C, HW, HW
+// fs:  F, C, 4, 4
+// out: N, F, HW-2, HW-2
 kernel void conv(device float *out,
                  device const float *ims,
                  device const float *fs,
                  uint2 local_size [[threads_per_threadgroup]],
                  uint2 gid [[threadgroup_position_in_grid]],
                  uint2 lid [[thread_position_in_threadgroup]]) {
-  // layout
-  // ims: N, C, HW, HW
-  // fs:  F, C, 4, 4
-  // out: N, F, HW-2, HW-2
-
   // for now, lets assume N = F = 1
-
   uint idx = gid.x*local_size.x + lid.x;
   uint idy = gid.y*local_size.y + lid.y;
 
-  ims += idx*16 + idy*$HW*16;
+  ims += idx*16 + idy*16*$HW;
   fs += 0; // This could get tricky with multiple filters
-  out += idx*16 + idy*($HW-2)*16;
+  out += idx*16 + idy*16*($HW-2);
 
   bool is_last_col = (idx+1)*16 == $HW;
   bool is_last_row = (idx+1)*16 == $HW;
@@ -71,7 +68,7 @@ kernel void conv(device float *out,
 
   for (uint c = 0; c < $C; c++) {
     // TODO: handle multiple filters
-    float4x4 f = load_float4x4(fs + c*16, 4);
+    float4x4 f = load_float4x4(fs+c*16, 4);
 
     threadgroup_barrier(mem_flags::mem_threadgroup);
 
@@ -85,7 +82,6 @@ kernel void conv(device float *out,
         if (j == 15 && is_last_row) {
           break;
         }
-
         float4x4 alu0 = load_float4x4(ims+i+j*$HW, $HW);
         threadgroup_barrier(mem_flags::mem_threadgroup);
         float4x4 alu1;
