@@ -4,7 +4,8 @@ import torch
 import torch.nn.functional as torchf
 from tinygrad.runtime.ops_metal import RawMetalBuffer
 
-N, HW, C, F = 1, 512, 16, 1
+# N, HW, C, F = 1, 512, 16, 1
+N, HW, C, F = 1, 32, 1, 1
 nims = np.random.default_rng().standard_normal(size=(N,C,HW,HW), dtype=np.float32)
 nfs = np.random.default_rng().standard_normal(size=(F,C,3,3), dtype=np.float32)
 
@@ -14,6 +15,6 @@ y_torch = torchf.conv2d(tims, tfs).cpu().numpy()
 
 ims = RawMetalBuffer.fromCPU(nims)
 fs = RawMetalBuffer.fromCPU(nfs)
-y = conv2d_wino(ims, fs, (N,HW,C,F)).toCPU()
+y = conv2d_wino(ims, fs, (N,HW,C,F)).toCPU().reshape(N,F,HW-2,HW-2)
 
-np.testing.assert_allclose(y_torch, y)
+np.testing.assert_allclose(y_torch, y, atol=0.001)

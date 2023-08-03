@@ -19,16 +19,6 @@ def conv2d_wino(ims:RawMetalBuffer, fs:RawMetalBuffer, size:Tuple[int,int,int,in
   tfs = RawMetalBuffer(F*C*4*4, dtypes.float32)
   out = RawMetalBuffer((HW-2)*(HW-2), dtypes.float32)
   ft_prg, conv_prg = _prgs(N, HW, C, F)
-  ft_prg([HW,1,1], [C,1,1], tfs, fs, wait=True)
+  ft_prg([F,1,1], [C,1,1], tfs, fs, wait=True)
   conv_prg([HW//16, HW//(16*LID), 1], [1, LID, 1], out, ims, tfs, wait=True)
   return out
-
-if __name__ == '__main__':
-  N, HW, C, F = 1, 512, 4, 1
-  nims = np.random.default_rng().standard_normal(size=(N,C,HW,HW), dtype=np.float32)
-  nfs = np.random.default_rng().standard_normal(size=(F,C,3,3), dtype=np.float32)
-  ims = RawMetalBuffer.fromCPU(nims)
-  fs = RawMetalBuffer.fromCPU(nfs)
-  out = conv2d_wino(ims, fs, (N,HW,C,F))
-  print(out.toCPU()[:128])
-  print(out.toCPU()[-128:])
