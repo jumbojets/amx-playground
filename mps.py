@@ -1,5 +1,5 @@
 import torch
-import torch.nn.functional as NNF
+import torch.nn.functional as torchf 
 import time
 
 assert torch.backends.mps.is_available()
@@ -9,7 +9,7 @@ def sample(N, HW, C, F):
   fs = torch.randn(F, C, 3, 3, device="mps")
 
   st = time.monotonic()
-  y = NNF.conv2d(ims, fs)
+  y = torchf.conv2d(ims, fs)
   print(y.shape)
   return y, time.monotonic()-st
 

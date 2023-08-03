@@ -8,15 +8,16 @@ kernel void filter_transform(device float *out, device const float *fs, uint id 
   // fs: F, C, 3, 3
   // out: F, C, 4, 4
 
-  float3x3 tmp0; for (uint i = 0; i < 9; i++) {
-    tmp0[i] = fs[id*9+i];
+  float3x3 alu0;
+  for (uint i = 0; i < 9; i++) {
+    alu0[i] = fs[id*9+i];
   }
-  float4x3 tmp1 = float4x3(tmp0[0], 0.5*(tmp0[0]+tmp0[1]+tmp0[2]), 0.5*(tmp0[0]-tmp0[1]+tmp0[2]), tmp0[2]);
-  float3x4 tmp2 = transpose(tmp1);
-  float4x4 tmp3 = float4x4(tmp2[0], 0.5*(tmp2[0]+tmp2[1]+tmp2[2]), 0.5*(tmp2[0]-tmp2[1]+tmp2[2]), tmp2[2]);
+  float4x3 alu1 = float4x3(alu0[0], 0.5*(alu0[0]+alu0[1]+alu0[2]), 0.5*(alu0[0]-alu0[1]+alu0[2]), alu0[2]);
+  float3x4 alu2 = transpose(alu1);
+  float4x4 alu3 = float4x4(alu2[0], 0.5*(alu2[0]+alu2[1]+alu2[2]), 0.5*(alu2[0]-alu2[1]+alu2[2]), alu2[2]);
   for (uint i = 0; i < 4; i++) {
     for (uint j = 0; j < 4; j++) {
-      out[id*16+i+4*j] = tmp3[i][j];
+      out[id*16+i+4*j] = alu3[i][j];
     }
   }
 }
@@ -58,6 +59,9 @@ kernel void conv(device float *out,
   fs += 0; // This could get tricky with multiple filters
   out += idx*16 + idy*($HW-2)*16;
 
+  bool is_last_col = (idx+1)*16 == $HW;
+  bool is_last_row = (idx+1)*16 == $HW;
+
   float4x4 acc[8][8];
   for (uint i = 0; i < 8; i++) {
     for (uint j = 0; j < 8; j++) {
@@ -72,37 +76,51 @@ kernel void conv(device float *out,
     threadgroup_barrier(mem_flags::mem_threadgroup);
 
     // input transformation, fused prod and acc with filter
-    for (uint i = 0; i < 8; i++) {
-      for (uint j = 0; j < 8; j++) {
-        for (uint k = 0; k < 2; k++) { // overlapped block
-          float4x4 in = load_float4x4(ims + i*4+k*2 + j*4*$HW, $HW);
-          threadgroup_barrier(mem_flags::mem_threadgroup);
-          in[0] =  in[0] - in[2];
-          in[0] =  in[1] + in[2];
-          in[0] = -in[1] + in[2];
-          in[0] =  in[1] - in[3];
-          in = transpose(in);
-          in[0] =  in[0] - in[2];
-          in[0] =  in[1] + in[2];
-          in[0] = -in[1] + in[2];
-          in[0] =  in[1] - in[3];
-          for (uint k = 0; k < 4; k++) {
-            acc[i][j][k] = fma(in[k], f[i][j][k], acc[i][j][k]);
-          }
+    for (uint i = 0; i < 16; i+=2) {
+      if (i == 15 && is_last_col) {
+        break;
+      }
+
+      for (uint j = 0; j < 16; j+=2) {
+        if (j == 15 && is_last_row) {
+          break;
+        }
+
+        float4x4 alu0 = load_float4x4(ims+i+j*$HW, $HW);
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        float4x4 alu1;
+        alu1[0] =  alu0[0] - alu0[2];
+        alu1[1] =  alu0[1] + alu0[2];
+        alu1[2] = -alu0[1] + alu0[2];
+        alu1[3] =  alu0[1] - alu0[3];
+        alu0 = transpose(alu1);
+        alu1[0] =  alu0[0] - alu0[2];
+        alu1[1] =  alu0[1] + alu0[2];
+        alu1[2] = -alu0[1] + alu0[2];
+        alu1[3] =  alu0[1] - alu0[3];
+        for (uint k = 0; k < 4; k++) {
+          acc[i][j][k] = fma(alu1[k], f[k], acc[i][j][k]);
         }
       }
     }
   }
 
   // output transformation
-  for (uint i = 0; i < 8; i++) {
-    for (uint j = 0; j < 8; i++) {
+  for (uint i = 0; i < 16; i+=2) {
+    if (i == 15 && is_last_col) {
+      break;
+    } 
+
+    for (uint j = 0; j < 16; j+=2) {
+      if (j == 15 && is_last_row) {
+        break;
+      }
       threadgroup_barrier(mem_flags::mem_threadgroup);
-      float4x4 tmp0 = acc[i][j];
-      float2x4 tmp1 = float2x4(tmp0[0] - tmp0[3], -tmp0[1]);
-      float4x2 tmp2 = transpose(tmp1);
-      float2x2 tmp3 = float2x2(tmp2[0] - tmp2[3], -tmp2[1]);
-      write_float2x2(out + i*? + j*?, $HW-2, tmp3);
+      float4x4 alu0 = acc[i][j];
+      float2x4 alu1 = float2x4(alu0[0] - alu0[3], -alu0[1]);
+      float4x2 alu2 = transpose(alu1);
+      float2x2 alu3 = float2x2(alu2[0] - alu2[3], -alu2[1]);
+      write_float2x2(out+i+j*($HW-2), $HW-2, alu3);
     }
   }
 }
