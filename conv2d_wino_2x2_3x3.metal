@@ -83,7 +83,7 @@ kernel void conv(device float *out,
         if (j == 7 && is_last_row) {
           break;
         }
-        float4x4 alu0 = load_float4x4(ims+2*i+2*j*$HW, $HW);
+        float4x4 alu0 = load_float4x4(ims+(2*i)+(2*j*$HW)+(c*$HW*$HW), $HW);
         threadgroup_barrier(mem_flags::mem_threadgroup);
         float4x4 alu1 = transpose(alu0);
         alu0[0] =  alu1[0] - alu1[2];
