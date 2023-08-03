@@ -8,18 +8,15 @@ kernel void filter_transform(device float *out, device const float *fs, uint id 
   // fs: F, C, 3, 3
   // out: F, C, 4, 4
 
-  if (id < $F*$C) {
-    float3x3 tmp0;
-    for (uint i = 0; i < 9; i++) {
-      tmp0[i] = fs[id*9+i];
-    }
-    float4x3 tmp1 = float4x3(tmp0[0], 0.5*(tmp0[0]+tmp0[1]+tmp0[2]), 0.5*(tmp0[0]-tmp0[1]+tmp0[2]), tmp0[2]);
-    float3x4 tmp2 = transpose(tmp1);
-    float4x4 tmp3 = float4x4(tmp2[0], 0.5*(tmp2[0]+tmp2[1]+tmp2[2]), 0.5*(tmp2[0]-tmp2[1]+tmp2[2]), tmp2[2]);
-    for (uint i = 0; i < 16; i++) {
-      for (uint j = 0; j < 4; j++) {
-        out[id*16+i+4*j] = tmp3[i][j];
-      }
+  float3x3 tmp0; for (uint i = 0; i < 9; i++) {
+    tmp0[i] = fs[id*9+i];
+  }
+  float4x3 tmp1 = float4x3(tmp0[0], 0.5*(tmp0[0]+tmp0[1]+tmp0[2]), 0.5*(tmp0[0]-tmp0[1]+tmp0[2]), tmp0[2]);
+  float3x4 tmp2 = transpose(tmp1);
+  float4x4 tmp3 = float4x4(tmp2[0], 0.5*(tmp2[0]+tmp2[1]+tmp2[2]), 0.5*(tmp2[0]-tmp2[1]+tmp2[2]), tmp2[2]);
+  for (uint i = 0; i < 4; i++) {
+    for (uint j = 0; j < 4; j++) {
+      out[id*16+i+4*j] = tmp3[i][j];
     }
   }
 }
@@ -64,7 +61,7 @@ kernel void conv(device float *out,
 
   float4x4 acc[8][8];
   for (uint i = 0; i < 8; i++) {
-    for (uint j = 0; i < 8; j++) {
+    for (uint j = 0; j < 8; j++) {
       acc[i][j] = float4x4(0.0);
     }
   }
@@ -78,7 +75,7 @@ kernel void conv(device float *out,
     }
 
     threadgroup_barrier(mem_flags::mem_threadgroup);
-    
+
     // input transformation, fused prod and acc with filter
     for (uint i = 0; i < 8; i++) {
       for (uint j = 0; j < 8; j++) {
