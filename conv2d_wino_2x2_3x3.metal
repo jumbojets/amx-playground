@@ -46,16 +46,16 @@ void write_float2x2(device float *out, uint D, float2x2 data) {
 kernel void conv(device float *out,
                  device const float *ims,
                  device const float *fs,
-                 uint2 local_size [[threads_per_threadgroup]],
-                 uint2 gid [[threadgroup_position_in_grid]],
-                 uint2 lid [[thread_position_in_threadgroup]]) {
-  // for now, lets assume N = F = 1
+                 uint3 local_size [[threads_per_threadgroup]],
+                 uint3 gid [[threadgroup_position_in_grid]],
+                 uint3 lid [[thread_position_in_threadgroup]]) {
   uint idx = gid.x*local_size.x + lid.x;
   uint idy = gid.y*local_size.y + lid.y;
+  uint idz = gid.z*local_size.z + lid.z;
 
-  ims += (idx*16)+(idy*16*$HW);
+  ims += (idx*16)+(idy*16*$HW)+(idz*$HW*$HW*$C);
   fs += 0; // This could get tricky with multiple filters
-  out += (idx*16)+(idy*16*($HW-2));
+  out += (idx*16)+(idy*16*($HW-2))+(idz*($HW-2)*($HW-2)*$F);
 
   bool is_last_col = (idx+1)*16 == $HW;
   bool is_last_row = (idy+1)*16 == $HW;

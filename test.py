@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as torchf
 from tinygrad.runtime.ops_metal import RawMetalBuffer
 
-cases = [(1,128,16,1), (1,32,1,1), (1,32,1,2)]
+cases = [(1,128,16,1), (1,32,1,1), (1,32,1,2), (16,16,16,16)]
 
 for N, HW, C, F in cases:
   nims = np.random.default_rng().standard_normal(size=(N,C,HW,HW), dtype=np.float32)
