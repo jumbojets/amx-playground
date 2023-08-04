@@ -3,6 +3,9 @@
 
 using namespace metal;
 
+// AHWxAHW is the shape of the acc matrix
+#define AHW ($BHW/2)
+
 // fs: F, C, 3, 3
 // out: F, C, 4, 4
 kernel void filter_transform(
@@ -25,20 +28,20 @@ kernel void filter_transform(
   }
 }
 
-float4x4 load_float4x4(device const float *data, uint D) {
+float4x4 load_float4x4(device const float *data, uint W) {
   float4x4 result;
   for (uint i = 0; i < 4; i++) {
     for (uint j = 0; j < 4; j++) {
-      result[i][j] = data[i+(j*D)];
+      result[i][j] = data[i+(j*W)];
     }
   }
   return result;
 }
 
-void write_float2x2(device float *out, uint D, float2x2 data) {
+void write_float2x2(device float *out, uint W, float2x2 data) {
   for (uint i = 0; i < 2; i++) {
     for (uint j = 0; j < 2; j++) {
-      out[i+(j*D)] = data[i][j];
+      out[i+(j*W)] = data[i][j];
     }
   }
 }
@@ -57,16 +60,16 @@ kernel void conv(
   uint idy = gid.y*local_size.y + lid.y;
   uint idz = gid.z*local_size.z + lid.z;
 
-  ims += (idx*16)+(idy*16*$HW)+(idz*$HW*$HW*$C);
-  out += (idx*16)+(idy*16*($HW-2))+(idz*($HW-2)*($HW-2)*$F);
+  ims += (idx*$BHW)+(idy*$BHW*$HW)+(idz*$HW*$HW*$C);
+  out += (idx*$BHW)+(idy*$BHW*($HW-2))+(idz*($HW-2)*($HW-2)*$F);
 
-  const bool is_last_col = (idx+1)*16 == $HW;
-  const bool is_last_row = (idy+1)*16 == $HW;
+  const bool is_last_col = (idx+1)*$BHW == $HW;
+  const bool is_last_row = (idy+1)*$BHW == $HW;
 
   for (uint f = 0; f < $F; f++) {
-    float4x4 acc[8][8];
-    for (uint i = 0; i < 8; i++) {
-      for (uint j = 0; j < 8; j++) {
+    float4x4 acc[AHW][AHW];
+    for (uint i = 0; i < AHW; i++) {
+      for (uint j = 0; j < AHW; j++) {
         acc[i][j] = float4x4(0.0);
       }
     }
@@ -77,13 +80,13 @@ kernel void conv(
       threadgroup_barrier(mem_flags::mem_threadgroup);
 
       // input transformation, fused prod and acc with filter
-      for (uint i = 0; i < 8; i++) {
-        if (i == 7 && is_last_col) {
+      for (uint i = 0; i < AHW; i++) {
+        if (i == (AHW-1) && is_last_col) {
           break;
         }
 
-        for (uint j = 0; j < 8; j++) {
-          if (j == 7 && is_last_row) {
+        for (uint j = 0; j < AHW; j++) {
+          if (j == (AHW-1) && is_last_row) {
             break;
           }
           float4x4 alu0 = load_float4x4(ims+(i*2)+(j*2*$HW)+(c*$HW*$HW), $HW);
@@ -100,13 +103,13 @@ kernel void conv(
     }
 
     // output transformation
-    for (uint i = 0; i < 8; i++) {
-      if (i == 7 && is_last_col) {
+    for (uint i = 0; i < AHW; i++) {
+      if (i == (AHW-1) && is_last_col) {
         break;
       }
 
-      for (uint j = 0; j < 8; j++) {
-        if (j == 7 && is_last_row) {
+      for (uint j = 0; j < AHW; j++) {
+        if (j == (AHW-1) && is_last_row) {
           break;
         }
         threadgroup_barrier(mem_flags::mem_threadgroup);
