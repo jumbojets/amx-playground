@@ -4,7 +4,7 @@ import torch
 import torch.mps
 import torch.nn.functional as torchf
 from conv2d_wino import conv2d_wino
-from tinygrad.runtime.ops_metal import RawMetalBuffer
+from tinygrad.runtime.ops_metal import RawMetalBuffer, METAL
 
 # TODO: sync devices. make sure that i am accurately getting what i need
 
@@ -23,15 +23,17 @@ def sample(N, HW, C, F):
   st = time.perf_counter()
   y_mps = torchf.conv2d(tims, tfs).cpu().numpy()
   mps_t = time.perf_counter()-st
-
-  # np.set_printoptions(suppress=True,precision=3,linewidth=300)
-  # print(y)
-  # print(y_mps)
+  
+  np.set_printoptions(suppress=True,precision=3,linewidth=300)
+  print(y)
+  print(y_mps)
 
   np.testing.assert_allclose(y_mps, y, atol=0.001)
   return mtl_t, mps_t
 
-# cases = [(1,128,16,1), (1,32,1,1), (1,32,1,2), (16,16,16,16), (32,128,4,512)]
 cases = [(1,32,1,1), (1,32,1,1), (1,32,1,2), (16,16,16,16), (32,128,4,512)]
 
-for args in cases: sample(*args)
+# if __name__ == '__main__':
+#   for args in cases: sample(*args)
+
+sample(1,8,16,1)
