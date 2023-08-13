@@ -24,9 +24,9 @@ def sample(N, HW, C, F):
   y_mps = torchf.conv2d(tims, tfs).cpu().numpy()
   mps_t = time.perf_counter()-st
   
-  np.set_printoptions(suppress=True,precision=3,linewidth=300)
-  print(y)
-  print(y_mps)
+  # np.set_printoptions(suppress=True,precision=3,linewidth=300)
+  # print(y)
+  # print(y_mps)
 
   np.testing.assert_allclose(y_mps, y, atol=0.001)
   return mtl_t, mps_t

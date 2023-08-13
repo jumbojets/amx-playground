@@ -106,6 +106,7 @@ kernel void conv(
           break;
         }
 
+#pragma clang loop unroll(full)
         for (uint j = 0; j < AHW; j++) {
           if (j == (AHW-1) && is_last_row) {
             break;
@@ -116,6 +117,7 @@ kernel void conv(
           alu0 = float4x4(alu1[0]-alu1[2], alu1[1]+alu1[2], -alu1[1]+alu1[2], alu1[1]-alu1[3]);
           alu1 = transpose(alu0);
           alu0 = float4x4(alu1[0]-alu1[2], alu1[1]+alu1[2], -alu1[1]+alu1[2], alu1[1]-alu1[3]);
+#pragma clang loop unroll(full)
           for (uint k = 0; k < 4; k++) {
             acc[i][j][k] = fma(alu0[k], filter[k], acc[i][j][k]);
           }
@@ -129,6 +131,7 @@ kernel void conv(
         break;
       }
 
+#pragma clang loop unroll(full)
       for (uint j = 0; j < AHW; j++) {
         if (j == (AHW-1) && is_last_row) {
           break;
@@ -157,6 +160,7 @@ kernel void conv2(
     uint3 local_size [[threads_per_threadgroup]],
     uint3        gid [[threadgroup_position_in_grid]],
     uint3        lid [[thread_position_in_threadgroup]]) {
+
   uint idx = gid.x*local_size.x + lid.x;
   uint idy = gid.y*local_size.y + lid.y;
   uint idz = gid.z*local_size.z;
@@ -164,7 +168,7 @@ kernel void conv2(
   
   ims += (idx*$BHW)+(idy*$BHW*$HW)+(idz*$HW*$HW*$C);
   out += (idx*$BHW)+(idy*$BHW*($HW-2))+(idz*($HW-2)*($HW-2)*$F);
-  fs += rlcl_idx*16*RLOOP; // TODO: get a filter offset into channel
+  fs += rlcl_idx*16*RLOOP;
 
   const bool is_last_col = (idx+1)*$BHW == $HW;
   const bool is_last_row = (idy+1)*$BHW == $HW;
@@ -190,6 +194,7 @@ kernel void conv2(
           break;
         }
 
+#pragma clang loop unroll(full)
         for (uint j = 0; j < AHW; j++) {
           if (j == (AHW-1) && is_last_row) {
             break;
@@ -197,10 +202,12 @@ kernel void conv2(
 
           float4x4 alu0 = load_float4x4(ims+(i*2)+(j*2*$HW)+(c*$HW*$HW), $HW);
           threadgroup_barrier(mem_flags::mem_threadgroup);
+
           float4x4 alu1 = transpose(alu0);
           alu0 = float4x4(alu1[0]-alu1[2], alu1[1]+alu1[2], -alu1[1]+alu1[2], alu1[1]-alu1[3]);
           alu1 = transpose(alu0);
           alu0 = float4x4(alu1[0]-alu1[2], alu1[1]+alu1[2], -alu1[1]+alu1[2], alu1[1]-alu1[3]);
+#pragma clang loop unroll(full)
           for (uint k = 0; k < 4; k++) {
             partial_accs[rlcl_idx][i][j][k] = fma(alu0[k], filter[k], partial_accs[rlcl_idx][i][j][k]);
           }
@@ -210,15 +217,16 @@ kernel void conv2(
 
     for (uint x = rlcl_idx; x < AHW*AHW; x += local_size.z) {
       
-      threadgroup_barrier(mem_flags::mem_threadgroup); 
+      threadgroup_barrier(mem_flags::mem_threadgroup);
       
       uint i = x % AHW;
       uint j = x / AHW;
       if ((i == (AHW-1) && is_last_col) || (j == (AHW-1) && is_last_row)) {
         continue;
       }
-      
+
       float4x4 acc = float4x4(0.0);
+#pragma clang loop unroll(full)
       for (uint k = 0; k < RLCL; k++) {
         acc += partial_accs[k][i][j];
       }
