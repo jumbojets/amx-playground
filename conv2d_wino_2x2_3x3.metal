@@ -26,7 +26,9 @@ kernel void filter_transform(
     device const float *fs,
     uint id [[thread_position_in_grid]]) {
   float3x3 alu0;
+#pragma clang loop unroll(full)
   for (uint i = 0; i < 3; i++) {
+#pragma clang loop unroll(full)
     for (uint j = 0; j < 3; j++) {
       alu0[j][i] = fs[(id*9)+i+(j*3)]; // transpose on load
     }
@@ -34,7 +36,9 @@ kernel void filter_transform(
   float4x3 alu1 = float4x3(alu0[0], 0.5*(alu0[0]+alu0[1]+alu0[2]), 0.5*(alu0[0]-alu0[1]+alu0[2]), alu0[2]);
   float3x4 alu2 = transpose(alu1);
   float4x4 alu3 = float4x4(alu2[0], 0.5*(alu2[0]+alu2[1]+alu2[2]), 0.5*(alu2[0]-alu2[1]+alu2[2]), alu2[2]);
+#pragma clang loop unroll(full)
   for (uint i = 0; i < 4; i++) {
+#pragma clang loop unroll(full)
     for (uint j = 0; j < 4; j++) {
       out[(id*16)+i+(j*4)] = alu3[i][j];
     }
@@ -43,7 +47,9 @@ kernel void filter_transform(
 
 float4x4 load_float4x4(device const float *data, uint W) {
   float4x4 result;
+#pragma clang loop unroll(full)
   for (uint i = 0; i < 4; i++) {
+#pragma clang loop unroll(full)
     for (uint j = 0; j < 4; j++) {
       result[i][j] = data[i+(j*W)];
     }
@@ -52,7 +58,9 @@ float4x4 load_float4x4(device const float *data, uint W) {
 }
 
 void write_float2x2(device float *out, uint W, float2x2 data) {
+#pragma clang loop unroll(full)
   for (uint i = 0; i < 2; i++) {
+#pragma clang loop unroll(full)
     for (uint j = 0; j < 2; j++) {
       out[i+(j*W)] = data[i][j];
     }
@@ -79,26 +87,20 @@ kernel void conv(
   const bool is_last_col = (idx+1)*$BHW == $HW;
   const bool is_last_row = (idy+1)*$BHW == $HW;
 
-  // threadgroup float4x4 filters[$C][$F];
-  // for (uint i = lid.x; i < $F*$C; i+=local_size.x) {
-  //   uint c = i % $C;
-  //   uint f = i / $C;
-  //   filters[c][f] = load_float4x4(fs+(c*16)+(f*16*$C), 4);
-  // }
-  // threadgroup_barrier(mem_flags::mem_threadgroup);
-
   for (uint f = 0; f < $F; f++) {
     float4x4 acc[AHW][AHW];
+#pragma clang loop unroll(full)
     for (uint i = 0; i < AHW; i++) {
+#pragma clang loop unroll(full)
       for (uint j = 0; j < AHW; j++) {
         acc[i][j] = float4x4(0.0);
       }
     }
 
     for (uint c = 0; c < $C; c++) {
+
       float4x4 filter = load_float4x4(fs+(c*16)+(f*16*$C), 4);
       threadgroup_barrier(mem_flags::mem_threadgroup);
-      // float4x4 filter = filters[c][f];
 
       // input transformation, fused prod and acc with filter
       for (uint i = 0; i < AHW; i++) {
@@ -111,12 +113,15 @@ kernel void conv(
           if (j == (AHW-1) && is_last_row) {
             break;
           }
+
           float4x4 alu0 = load_float4x4(ims+(i*2)+(j*2*$HW)+(c*$HW*$HW), $HW);
           threadgroup_barrier(mem_flags::mem_threadgroup);
+
           float4x4 alu1 = transpose(alu0);
           alu0 = float4x4(alu1[0]-alu1[2], alu1[1]+alu1[2], -alu1[1]+alu1[2], alu1[1]-alu1[3]);
           alu1 = transpose(alu0);
           alu0 = float4x4(alu1[0]-alu1[2], alu1[1]+alu1[2], -alu1[1]+alu1[2], alu1[1]-alu1[3]);
+
 #pragma clang loop unroll(full)
           for (uint k = 0; k < 4; k++) {
             acc[i][j][k] = fma(alu0[k], filter[k], acc[i][j][k]);
@@ -176,7 +181,9 @@ kernel void conv2(
   for (uint f = 0; f < $F; f++) { // filter
 
     threadgroup float4x4 partial_accs[RLCL][AHW][AHW];
+#pragma clang loop unroll(full)
     for (int i = 0; i < AHW; i++) {
+#pragma clang loop unroll(full)
       for (int j = 0; j < AHW; j++) {
         partial_accs[rlcl_idx][i][j] = float4x4(0.0);
       }
@@ -207,6 +214,7 @@ kernel void conv2(
           alu0 = float4x4(alu1[0]-alu1[2], alu1[1]+alu1[2], -alu1[1]+alu1[2], alu1[1]-alu1[3]);
           alu1 = transpose(alu0);
           alu0 = float4x4(alu1[0]-alu1[2], alu1[1]+alu1[2], -alu1[1]+alu1[2], alu1[1]-alu1[3]);
+
 #pragma clang loop unroll(full)
           for (uint k = 0; k < 4; k++) {
             partial_accs[rlcl_idx][i][j][k] = fma(alu0[k], filter[k], partial_accs[rlcl_idx][i][j][k]);
@@ -216,9 +224,9 @@ kernel void conv2(
     }
 
     for (uint x = rlcl_idx; x < AHW*AHW; x += local_size.z) {
-      
-      threadgroup_barrier(mem_flags::mem_threadgroup);
-      
+
+      // threadgroup_barrier(mem_flags::mem_threadgroup);
+
       uint i = x % AHW;
       uint j = x / AHW;
       if ((i == (AHW-1) && is_last_col) || (j == (AHW-1) && is_last_row)) {
