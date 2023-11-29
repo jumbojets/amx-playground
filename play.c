@@ -17,7 +17,7 @@ void rand_array(int16_t arr[N]) {
     arr[i] = rand() % 10;
 }
 
-void print_mat(int16_t arr[N], int rows, int cols) {
+void print_mat(int16_t *arr, int rows, int cols) {
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++)
       printf("%d, ", arr[i*rows+j]);
@@ -26,7 +26,7 @@ void print_mat(int16_t arr[N], int rows, int cols) {
 }
 
 int main() {
-  // srand(time(NULL));
+  srand(time(NULL));
 
   rand_array(X);
   rand_array(Y);
