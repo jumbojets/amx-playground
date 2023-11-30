@@ -53,14 +53,14 @@ int main() {
             for (int xyk = 0; xyk < 4; xyk++) {
 
               // load the 8 partial rows into both x and y
-              #pragma clang loop unroll(full)
+#pragma clang loop unroll(full)
               for (uint64_t pr = 0; pr < 8; pr++) {
                 AMX_LDX((PMASK & (uint64_t)(At + (zk*32 + xyk*8 + pr)*N + 2*8*(zi*32 + xyi*8))) | (pr << 56));
                 AMX_LDX((PMASK & (uint64_t)(B  + (zk*32 + xyk*8 + pr)*N + 2*8*(zj*32 + xyj*8))) | (pr << 56));
               }
 
               // can put this in above for loop, but im not using x,y registers well...
-              #pragma clang loop unroll(full)
+#pragma clang loop unroll(full)
               for (uint64_t pr = 0; pr < 8; pr++) 
                 AMX_MAC16(((pr*64) << 10 | (pr*64)));
 
@@ -69,11 +69,9 @@ int main() {
         }
       }
 
-      #pragma clang loop unroll_count(8)
-      for (uint64_t r = 0; r < 32; r++) {
-        printf("we get here\n");
+#pragma clang loop unroll_count(8)
+      for (uint64_t r = 0; r < 32; r++)
         AMX_STZ((PMASK & ((uint64_t)C + (zi*32 + r)*N + 2*32*(zj*32 + r))) | (r << 56));
-      }
         
       AMX_CLR();
     }
