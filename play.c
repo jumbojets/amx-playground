@@ -4,6 +4,7 @@
 #include <time.h>
 
 #include "amx.h"
+#include "util.h"
 
 #define PMASK 0xffffffffffffff
 #define N 32
@@ -12,24 +13,11 @@ int16_t X[N];
 int16_t Y[N];
 int16_t Z[N*N];
 
-void rand_array(int16_t arr[N]) {
-  for (int i = 0; i < N; i++)
-    arr[i] = rand() % 10;
-}
-
-void print_mat(int16_t *arr, int rows, int cols) {
-  for (int i = 0; i < rows; i++) {
-    for (int j = 0; j < cols; j++)
-      printf("%d, ", arr[i*rows+j]);
-    printf("\n");
-  }
-}
-
 int main() {
   srand(time(NULL));
 
-  rand_array(X);
-  rand_array(Y);
+  rand_array(X,N);
+  rand_array(Y,N);
 
   print_mat(X,1,N);
   print_mat(Y,1,N);
