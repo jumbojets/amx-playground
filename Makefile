@@ -12,6 +12,12 @@ matmul: matmul.out
 matmul.out: matmul.c amx.h | ${build_dir}
 	clang -O3 -o ${build_dir}/matmul matmul.c
 
+perf: perf.out
+	${build_dir}/perf
+
+perf.out: perf.c amx.h | ${build_dir}
+	clang -O3 -o ${build_dir}/perf perf.c
+
 clean:
 	rm -rf $(build_dir)/*
 
