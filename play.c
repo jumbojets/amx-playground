@@ -6,7 +6,6 @@
 #include "amx.h"
 #include "util.h"
 
-#define PMASK 0xffffffffffffff
 #define N 32
 
 int16_t X[N];

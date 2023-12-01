@@ -1,6 +1,8 @@
 #pragma once
 #include <stdint.h>
 
+#define PMASK 0xffffffffffffff
+
 void rand_array(int16_t *arr, int size) {
   for (int i = 0; i < size; i++)
     arr[i] = rand() % 10;

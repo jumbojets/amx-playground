@@ -13,7 +13,6 @@
 #include "amx.h"
 #include "util.h"
 
-#define PMASK 0xffffffffffffff
 #define N 64
 
 int16_t At[N*N]; // Assume A is transposed so can access columns as rows lol
