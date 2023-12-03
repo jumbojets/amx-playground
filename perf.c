@@ -5,7 +5,7 @@
 
 #include "amx.h"
 
-#define ITERATIONS 10000000000
+#define ITERATIONS 1000000000
 
 #define ITERATE_AMX_OP(op) \
  for (uint64_t i = 0; i < ITERATIONS; ++i) \
@@ -36,20 +36,25 @@ int main() {
   // }
 
   // test SIMD ADD latency
-  for (uint64_t i = 0; i < ITERATIONS; ++i) {
-    int16_t arr[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-    int16x8_t a = vld1q_s16(arr);
-    int16x8_t b = vld1q_s16(arr);
-    int16x8_t c;
-    asm volatile (
-      "add v0.8h, %1.8h, %2.8h\n\t"
-      : "=w" (c)
-      : "w" (a), "w" (b)
-      : "v0" // clobber list 
-    );
-  }
+  // int16_t arr[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+  // int16x8_t a = vld1q_s16(arr);
+  // int16x8_t b = vld1q_s16(arr);
+  // int16x8_t c;
+  // for (uint64_t i = 0; i < ITERATIONS; ++i) {
+  //   asm volatile (
+  //     "add v0.8h, %1.8h, %2.8h\n\t"
+  //     : "=w" (c)
+  //     : "w" (a), "w" (b)
+  //     : "v0" // clobber list 
+  //   );
+  // }
 
-  // ITERATE_AMX_OP(MAC16);
+  ITERATE_AMX_OP(MAC16);
+
+  for (uint64_t i = 0; i < ITERATIONS; i++) {
+    AMX_MAC16(0LL);
+    AMX_MAC16(64LL << 20);
+  }
 
   end = mach_absolute_time();
 

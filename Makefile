@@ -1,21 +1,31 @@
-build_dir := ./build
-CC := clang
-CFLAGS := -O3
-TARGETS := matmul play perf
+build_dir = ./build
 
-.PHONY: $(TARGETS) clean
+play: play.out
+	${build_dir}/play
 
-help:
-	@echo "Available targets: $(TARGETS)"
+play.out: play.c amx.h | ${build_dir}
+	clang -O3 -o ${build_dir}/play play.c
 
-$(TARGETS): %: $(build_dir)/%.out
-	./$(build_dir)/$@
+matmul: matmul.out
+	${build_dir}/matmul
 
-$(build_dir)/%.out: %.c amx.h | $(build_dir)
-	$(CC) $(CFLAGS) -o $@ $<
+matmul.out: matmul.c amx.h | ${build_dir}
+	clang -O3 -o ${build_dir}/matmul matmul.c
 
-$(build_dir):
-	mkdir -p $(build_dir)
+perf: perf.out
+	${build_dir}/perf
+
+perf.out: perf.c amx.h | ${build_dir}
+	clang -O3 -o ${build_dir}/perf perf.c
+
+smol: smol.out
+	${build_dir}/smol
+
+smol.out: smolperceptron.c amx.h | ${build_dir}
+	clang -O3 -o ${build_dir}/smol smolperceptron.c
 
 clean:
 	rm -rf $(build_dir)/*
+
+${build_dir}:
+	mkdir ${build_dir}
