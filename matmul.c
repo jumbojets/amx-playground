@@ -13,7 +13,7 @@
 #include "amx.h"
 #include "util.h"
 
-#define N 64
+#define N 32
 
 int16_t At[N*N]; // Assume A is transposed so can access columns as rows lol
 int16_t B[N*N];
@@ -43,12 +43,13 @@ int main() {
 #pragma clang loop unroll(full)
               for (uint64_t pr = 0; pr < 8; pr++) {
                 AMX_LDX((PMASK & (uint64_t)(At + (zk*32 + xyk*8 + pr)*N + 2*8*(zi*32 + xyi*8))) | (pr << 56));
-                AMX_LDX((PMASK & (uint64_t)(B  + (zk*32 + xyk*8 + pr)*N + 2*8*(zj*32 + xyj*8))) | (pr << 56));
+                AMX_LDY((PMASK & (uint64_t)(B  + (zk*32 + xyk*8 + pr)*N + 2*8*(zj*32 + xyj*8))) | (pr << 56));
               }
 
               // can put this in above for loop, but im not using x,y registers well...
+              // TODO: actually needs to be every row with every col
 #pragma clang loop unroll(full)
-              for (uint64_t pr = 0; pr < 8; pr++) 
+              for (uint64_t pr = 0; pr < 8; pr++)
                 AMX_MAC16(((pr*64) << 10 | (pr*64)));
 
             }
