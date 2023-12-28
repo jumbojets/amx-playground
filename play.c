@@ -29,14 +29,6 @@ int main() {
     AMX_MAC16((i*64) | ((i*2*64) << 9));
   }
 
-  int16_t reg[256];
-  read_x(reg);
-  print_mat(reg,8,32);
-  printf("\n");
-  read_y(reg);
-  print_mat(reg,8,32);
-  printf("\n");
-
   for (uint64_t i = 0; i < N; i++)
     AMX_STZ((PMASK & (uint64_t)(C+N*i)) | (2*i << 56));
 

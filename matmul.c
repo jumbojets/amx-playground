@@ -27,8 +27,6 @@ int main() {
   rand_array(At,N*N);
   rand_array(B,N*N);
 
-  print_mat(At,N,N);
-
   for (int zi = 0; zi < N/32; zi++) {     // zreg tile row. register tile holds 2x matrices of 32x32 2-byte elements. only use 1x for now
     for (int zj = 0; zj < N/32; zj++) {   // zreg tile col
 
@@ -42,18 +40,16 @@ int main() {
           // load the 8 partial rows into both x and y and execute
 #pragma clang loop unroll(full)
           for (uint64_t pr = 0; pr < 8; pr++) {
-            AMX_LDY((PMASK & (uint64_t)(At + (zi*32 + pr + 4*xy)*N + (zk*32))) | (pr << 56));
-            AMX_LDX((PMASK & (uint64_t)(B  + (zj*32 + pr + 4*xy)*N + (zk*32))) | (pr << 56));
+            AMX_LDY((PMASK & (uint64_t)(At + (zi*32 + pr + 8*xy)*N + (zk*32))) | (pr << 56));
+            AMX_LDX((PMASK & (uint64_t)(B  + (zj*32 + pr + 8*xy)*N + (zk*32))) | (pr << 56));
             AMX_MAC16(((pr*64) << 10 | (pr*64)));
           }
         }
       }
 
-        // AMX_STZ((PMASK & ((uint64_t)C + (zi*32 + r)*N + 2*32*(zj*32 + r))) | (2*r << 56));
-
 #pragma clang loop unroll_count(8)
       for (uint64_t r = 0; r < 32; r++)
-        AMX_STZ((PMASK & (uint64_t)(C + (zi*32))));
+        AMX_STZ((PMASK & (uint64_t)(C + (zi*32 + r)*N + (zj*32))) | (2*r << 56));
 
       AMX_CLR();
     }
