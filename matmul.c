@@ -6,9 +6,11 @@
 // L3:                   48MB
 
 // TODO:
-// use other half of zreg
-// more cache awareness
+// * use other half of z-register 
+// * more cache awareness
+// * multithreaded
 
+#include <mach/mach_time.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -16,22 +18,18 @@
 #include "amx.h"
 #include "util.h"
 
-#define N 32
+#define N 1024
 
-// Assume A is transposed so can access columns as rows lol
+// assume A is transposed to access columns as rows
 int16_t At[N*N] __attribute__ ((aligned (64)));
 int16_t  B[N*N] __attribute__ ((aligned (64)));
 int16_t  C[N*N] __attribute__ ((aligned (64)));
 
-int main() {
-  rand_array(At,N*N);
-  rand_array(B,N*N);
+void matmul() {
+  for (int zi = 0; zi < N/32; zi++) {     // z-reg tile row. register tile holds 2x matrices of 32x32 2-byte elements. only use 1x for now
+    for (int zj = 0; zj < N/32; zj++) {   // z-reg tile col
 
-  for (int zi = 0; zi < N/32; zi++) {     // zreg tile row. register tile holds 2x matrices of 32x32 2-byte elements. only use 1x for now
-    for (int zj = 0; zj < N/32; zj++) {   // zreg tile col
-
-      // accumulate z here. start at zero
-      AMX_SET();
+      AMX_SET(); // z-register reset to zero
 
       for (int zk = 0; zk < N/32; zk++) { // go down At and B
 
@@ -40,8 +38,8 @@ int main() {
           // load the 8 partial rows into both x and y and execute
 #pragma clang loop unroll(full)
           for (uint64_t pr = 0; pr < 8; pr++) {
-            AMX_LDY((PMASK & (uint64_t)(At + (zi*32 + pr + 8*xy)*N + (zk*32))) | (pr << 56));
-            AMX_LDX((PMASK & (uint64_t)(B  + (zj*32 + pr + 8*xy)*N + (zk*32))) | (pr << 56));
+            AMX_LDY((PMASK & (uint64_t)(At + (zk*32 + pr + 8*xy)*N + (zi*32))) | (pr << 56));
+            AMX_LDX((PMASK & (uint64_t)(B  + (zk*32 + pr + 8*xy)*N + (zj*32))) | (pr << 56));
             AMX_MAC16(((pr*64) << 10 | (pr*64)));
           }
         }
@@ -54,8 +52,24 @@ int main() {
       AMX_CLR();
     }
   }
+}
 
-  print_mat(C,N,N);
+int main() {
+  uint64_t start, end;
+  mach_timebase_info_data_t timebase_info;
+  mach_timebase_info(&timebase_info);
+
+  rand_array(At,N*N);
+  rand_array(B,N*N);
+
+  start = mach_absolute_time();
+  matmul();
+  end = mach_absolute_time();
+
+  uint64_t ns = (end-start)*timebase_info.numer/timebase_info.denom;
+  double gflop = (2.0*N*N*N)*1e-9;
+  double s = ns*1e-9;
+  printf("%f GFLOP/s -- %.2f ms\n", gflop/s, s*1e3);
 
   // check if equivalent to naive matrix multiplication implementation
   for (int i = 0; i < N; i++) {
