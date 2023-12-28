@@ -1,6 +1,5 @@
 #include <stdint.h>
 #include <stdlib.h>
-
 #include "amx.h"
 #include "util.h"
 

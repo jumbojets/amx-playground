@@ -1,8 +1,7 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <mach/mach_time.h>
 #include <arm_neon.h>
-
+#include <mach/mach_time.h>
+#include <stdint.h>
+#include <stdio.h>
 #include "amx.h"
 
 #define ITERATIONS 1000000000

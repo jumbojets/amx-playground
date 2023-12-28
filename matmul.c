@@ -5,19 +5,23 @@
 // L2(efficiency):       4MB
 // L3:                   48MB
 
+// TODO:
+// use other half of zreg
+// more cache awareness
+
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
-
 #include "amx.h"
 #include "util.h"
 
 #define N 32
 
-int16_t At[N*N]; // Assume A is transposed so can access columns as rows lol
-int16_t B[N*N];
-int16_t C[N*N];
+// Assume A is transposed so can access columns as rows lol
+int16_t At[N*N] __attribute__ ((aligned (64)));
+int16_t  B[N*N] __attribute__ ((aligned (64)));
+int16_t  C[N*N] __attribute__ ((aligned (64)));
 
 int main() {
   rand_array(At,N*N);
@@ -32,34 +36,24 @@ int main() {
       AMX_SET();
 
       for (int zk = 0; zk < N/32; zk++) { // go down At and B
+
         // the X,Y registers can only hold 8 partial rows of 32 int16s
-        // so its furthur divided into 16 (4x4) tiles of 8x8
-
-        for (int xyi = 0; xyi < 32/8; xyi++) {
-          for (int xyj = 0; xyj < 4; xyj++) {
-            for (int xyk = 0; xyk < 4; xyk++) {
-
-              // load the 8 partial rows into both x and y
+        for (int xy = 0; xy < 32/8; xy++) {
+          // load the 8 partial rows into both x and y and execute
 #pragma clang loop unroll(full)
-              for (uint64_t pr = 0; pr < 8; pr++) {
-                AMX_LDX((PMASK & (uint64_t)(At + (zk*32 + xyk*8 + pr)*N + 2*8*(zi*32 + xyi*8))) | (pr << 56));
-                AMX_LDY((PMASK & (uint64_t)(B  + (zk*32 + xyk*8 + pr)*N + 2*8*(zj*32 + xyj*8))) | (pr << 56));
-              }
-
-              // can put this in above for loop, but im not using x,y registers well...
-              // TODO: actually needs to be every row with every col
-#pragma clang loop unroll(full)
-              for (uint64_t pr = 0; pr < 8; pr++)
-                AMX_MAC16(((pr*64) << 10 | (pr*64)));
-
-            }
+          for (uint64_t pr = 0; pr < 8; pr++) {
+            AMX_LDY((PMASK & (uint64_t)(At + (zi*32 + pr + 4*xy)*N + (zk*32))) | (pr << 56));
+            AMX_LDX((PMASK & (uint64_t)(B  + (zj*32 + pr + 4*xy)*N + (zk*32))) | (pr << 56));
+            AMX_MAC16(((pr*64) << 10 | (pr*64)));
           }
         }
       }
 
+        // AMX_STZ((PMASK & ((uint64_t)C + (zi*32 + r)*N + 2*32*(zj*32 + r))) | (2*r << 56));
+
 #pragma clang loop unroll_count(8)
       for (uint64_t r = 0; r < 32; r++)
-        AMX_STZ((PMASK & ((uint64_t)C + (zi*32 + r)*N + 2*32*(zj*32 + r))) | (r << 56));
+        AMX_STZ((PMASK & (uint64_t)(C + (zi*32))));
 
       AMX_CLR();
     }
@@ -67,7 +61,7 @@ int main() {
 
   print_mat(C,N,N);
 
-  // check if equivalent naive matrix multiplication implementation
+  // check if equivalent to naive matrix multiplication implementation
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < N; j++) {
       int16_t real = 0;
