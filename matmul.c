@@ -6,7 +6,7 @@
 // L3:                   48MB
 
 // TODO:
-// * use other half of z-register 
+// * use other half of z-register
 // * more cache awareness
 // * load 128 bytes into consecutive AMX registers (must be 128 byte aligned)
 // * multithreaded
@@ -14,6 +14,7 @@
 #include <mach/mach_time.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include "amx.h"
 #include "util.h"
@@ -34,7 +35,7 @@ void matmul() {
 
         // the X,Y registers can only hold 8 partial rows of 32 int16s
         for (int rb = 0; rb < 32; rb+=8) {
-#pragma clang loop unroll(full)
+          #pragma clang loop unroll(full)
           for (uint64_t r = 0; r < 8; r++) {
             AMX_LDY((PMASK & (uint64_t)(At + (k+rb+r)*N + i)) | (r << 56));
             AMX_LDX((PMASK & (uint64_t)(B  + (k+rb+r)*N + j)) | (r << 56));
@@ -43,7 +44,7 @@ void matmul() {
         }
       }
 
-#pragma clang loop unroll_count(8)
+      #pragma clang loop unroll_count(8)
       for (uint64_t r = 0; r < 32; r++)
         AMX_STZ((PMASK & (uint64_t)(C + (i+r)*N + j)) | (2*r << 56));
 
@@ -65,6 +66,7 @@ int main() {
   for (int i = 0; i < ITERATIONS; i++) {
     rand_array(At,N*N);
     rand_array(B,N*N);
+    memset(C,0,N*N*sizeof(int16_t));
 
     start = mach_absolute_time();
     matmul();
@@ -90,5 +92,6 @@ int main() {
 #endif
 
   }
+
   return 0;
 }
