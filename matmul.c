@@ -26,19 +26,18 @@ int16_t  B[N*N] __attribute__ ((aligned (64)));
 int16_t  C[N*N] __attribute__ ((aligned (64)));
 
 void matmul() {
-  for (int i = 0; i < N/32; i++) {     // C tile row
-    for (int j = 0; j < N/32; j++) {   // C tile col
-
+  for (int i = 0; i < N; i+=32) {     // C tile row
+    for (int j = 0; j < N; j+=32) {   // C tile col
       AMX_SET(); // z-register reset to zero
 
-      for (int k = 0; k < N/32; k++) { // down cols of At and B
+      for (int k = 0; k < N; k+=32) { // down cols of At and B
 
         // the X,Y registers can only hold 8 partial rows of 32 int16s
-        for (int rb = 0; rb < 32/8; rb++) {
+        for (int rb = 0; rb < 32; rb+=8) {
 #pragma clang loop unroll(full)
           for (uint64_t r = 0; r < 8; r++) {
-            AMX_LDY((PMASK & (uint64_t)(At + (k*32 + rb*8 + r)*N + i*32)) | (r << 56));
-            AMX_LDX((PMASK & (uint64_t)(B  + (k*32 + rb*8 + r)*N + j*32)) | (r << 56));
+            AMX_LDY((PMASK & (uint64_t)(At + (k+rb+r)*N + i)) | (r << 56));
+            AMX_LDX((PMASK & (uint64_t)(B  + (k+rb+r)*N + j)) | (r << 56));
             AMX_MAC16((r*64) | (r*64 << 10));
           }
         }
@@ -46,7 +45,7 @@ void matmul() {
 
 #pragma clang loop unroll_count(8)
       for (uint64_t r = 0; r < 32; r++)
-        AMX_STZ((PMASK & (uint64_t)(C + (i*32 + r)*N + j*32)) | (r*2 << 56));
+        AMX_STZ((PMASK & (uint64_t)(C + (i+r)*N + j)) | (2*r << 56));
 
       AMX_CLR();
     }
@@ -62,7 +61,7 @@ int main() {
   uint64_t start, end;
   mach_timebase_info_data_t timebase_info;
   mach_timebase_info(&timebase_info);
-  
+
   for (int i = 0; i < ITERATIONS; i++) {
     rand_array(At,N*N);
     rand_array(B,N*N);
@@ -77,7 +76,6 @@ int main() {
     printf("%f GOP/s -- %.2f ms\n", gop/s, s*1e3);
 
 #if CHECK_EQUIV
-    // check if equivalent to naive matrix multiplication implementation
     for (int i = 0; i < N; i++) {
       for (int j = 0; j < N; j++) {
         int16_t real = 0;
