@@ -32,15 +32,15 @@ void matmul() {
 
       for (int k = 0; k < N; k+=32) { // down cols of At and B
 
-        // the X,Y registers can only hold 8 partial rows of 32 int16s
+        // the X,Y registers can only hold 8 partial rows of 32 f16s
         for (int rb = 0; rb < 32; rb+=8) {
           #pragma clang loop unroll(full)
           for (uint64_t r = 0; r < 8; r++) {
             AMX_LDY((PMASK & (uint64_t)(At + (k+rb+r)*N + i)) | (r << 56));
-            uint64_t xr1 = (2*r)%8; // TODO: should be cleaner way of doing this
+            uint64_t xr1 = (2*r)%8; // TODO: there should be cleaner way of doing this
             uint64_t xr2 = (2*r+1)%8;
-            AMX_LDX((PMASK & (uint64_t)(B  + (k+rb+r)*N + j)) | (xr1 << 56));
-            AMX_LDX((PMASK & (uint64_t)(B  + (k+rb+r)*N + j+32)) | (xr2 << 56));
+            AMX_LDX((PMASK & (uint64_t)(B + (k+rb+r)*N + j)) | (xr1 << 56));
+            AMX_LDX((PMASK & (uint64_t)(B + (k+rb+r)*N + j+32)) | (xr2 << 56));
             AMX_FMA16((r*64) | (xr1*64 << 10));
             AMX_FMA16((r*64) | (xr2*64 << 10) | (1 << 20));
           }

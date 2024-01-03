@@ -50,7 +50,7 @@ void accumulators() {
   start = mach_absolute_time(); 
   for (uint64_t i = 0; i < ITERATIONS; i++) {
     AMX_FMA16(0);
-    AMX_FMA16(1 << 20); // about same throughput if we remove this line
+    AMX_FMA16(1 << 20); // about same throughput if we remove this line due to independence of z-registers
   }
   end = mach_absolute_time(); 
 
