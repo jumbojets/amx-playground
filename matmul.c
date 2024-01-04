@@ -21,9 +21,9 @@
 #define N 1024
 
 // assume A is transposed to access columns as rows
-__fp16 At[N*N] __attribute__ ((aligned (64)));
-__fp16  B[N*N] __attribute__ ((aligned (64)));
-__fp16  C[N*N] __attribute__ ((aligned (64)));
+_Float16 At[N*N] __attribute__ ((aligned (64)));
+_Float16  B[N*N] __attribute__ ((aligned (64)));
+_Float16  C[N*N] __attribute__ ((aligned (64)));
 
 void matmul() {
   for (int i = 0; i < N; i+=32) {     // C tile row
@@ -60,7 +60,7 @@ void matmul() {
 
 #define ITERATIONS 10
 #define CHECK_EQUIV 0
-#define EPSILON 1
+#define EPSILON 1e-5
 
 int main() {
   srand(time(NULL));
@@ -86,11 +86,11 @@ int main() {
 #if CHECK_EQUIV
     for (int i = 0; i < N; i++) {
       for (int j = 0; j < N; j++) {
-        __fp16 real = 0;
+        _Float16 real = 0;
         for (int k = 0; k < N; k++)
           real += At[k*N+i] * B[k*N+j];
         if ((C[i*N+j] - real) > EPSILON) {
-          printf("not equivalent at (%d, %d): %f != %f\n", i, j, C[i*N+j], real);
+          printf("not equivalent at (%d, %d): %f != %f\n", i, j, (float)C[i*N+j], (float)real);
           return 1;
         }
       }

@@ -9,9 +9,9 @@
 // mini matrix multiplication
 #define N 8
 
-__fp16 A[N*N]; // assume that it is transposed
-__fp16 B[N*N];
-__fp16 C[N*N];
+_Float16 A[N*N]; // assume that it is transposed
+_Float16 B[N*N];
+_Float16 C[N*N];
 
 void smol_matmul() {
   rand_array(A,N*N);
