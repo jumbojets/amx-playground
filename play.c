@@ -25,13 +25,13 @@ void smol_matmul() {
   AMX_SET();
 
   for (uint64_t i = 0; i < N; i++) {
-    AMX_LDX(PMASK & (uint64_t)(B + N*i) | (i << 56));
-    AMX_LDY(PMASK & (uint64_t)(A + N*i) | (i << 56));
-    AMX_FMA16((i*64) | ((i*64) << 10));
+    AMX_LDX(B+N*i, i, 0);
+    AMX_LDY(A+N*i, i, 0);
+    AMX_FMA16(i*64, i*64, 0, 0);
   }
 
   for (uint64_t i = 0; i < N; i++)
-    AMX_STZ((PMASK & (uint64_t)(C+N*i)) | (2*i << 56));
+    AMX_STZ(C+N*i, 2*i, 0);
 
   AMX_CLR();
 
@@ -49,8 +49,8 @@ void accumulators() {
 
   start = mach_absolute_time(); 
   for (uint64_t i = 0; i < ITERATIONS; i++) {
-    AMX_FMA16(0);
-    AMX_FMA16(1 << 20); // about same throughput if we remove this line due to independence of z-registers
+    AMX_FMA16(0, 0, 0, 0);
+    AMX_FMA16(0, 0, 1, 0); // same throughput if we remove this line due to independence of z-registers
   }
   end = mach_absolute_time(); 
 

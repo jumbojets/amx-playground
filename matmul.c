@@ -36,21 +36,21 @@ void matmul() {
         for (int rb = 0; rb < 32; rb+=8) {
           #pragma clang loop unroll(full)
           for (uint64_t r = 0; r < 8; r++) {
-            AMX_LDY((PMASK & (uint64_t)(At + (k+rb+r)*N + i)) | (r << 56));
+            AMX_LDY(At + (k+rb+r)*N + i, r, 0);
             uint64_t xr1 = (2*r)%8; // TODO: there should be cleaner way of doing this
             uint64_t xr2 = (2*r+1)%8;
-            AMX_LDX((PMASK & (uint64_t)(B + (k+rb+r)*N + j)) | (xr1 << 56));
-            AMX_LDX((PMASK & (uint64_t)(B + (k+rb+r)*N + j+32)) | (xr2 << 56));
-            AMX_FMA16((r*64) | (xr1*64 << 10));
-            AMX_FMA16((r*64) | (xr2*64 << 10) | (1 << 20));
+            AMX_LDX(B + (k+rb+r)*N + j, xr1, 0);
+            AMX_LDX(B + (k+rb+r)*N + j + 32, xr2, 0);
+            AMX_FMA16(r*64, xr1*64, 0, 0);
+            AMX_FMA16(r*64, xr2*64, 1, 0);
           }
         }
       }
 
       #pragma clang loop unroll_count(8)
       for (uint64_t r = 0; r < 32; r++) {
-        AMX_STZ((PMASK & (uint64_t)(C + (i+r)*N + j)) | (2*r << 56));
-        AMX_STZ((PMASK & (uint64_t)(C + (i+r)*N + j+32)) | ((2*r+1) << 56));
+        AMX_STZ(C + (i+r)*N + j, 2*r, 0);
+        AMX_STZ(C + (i+r)*N + j + 32, 2*r+1, 0);
       }
 
       AMX_CLR();
@@ -70,9 +70,9 @@ int main() {
   mach_timebase_info(&timebase_info);
 
   for (int i = 0; i < ITERATIONS; i++) {
-    rand_array(At,N*N);
-    rand_array(B,N*N);
-    memset(C,0,N*N*sizeof(int16_t));
+    rand_array(At, N*N);
+    rand_array(B, N*N);
+    memset(C, 0, N*N*sizeof(int16_t));
 
     start = mach_absolute_time();
     matmul();

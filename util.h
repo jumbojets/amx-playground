@@ -4,8 +4,6 @@
 #include <stdio.h>
 #include "amx.h"
 
-#define PMASK 0xffffffffffffff
-
 void rand_array(_Float16 *arr, int size) {
   for (int i = 0; i < size; i++)
     arr[i] = (_Float16)((float)rand() / RAND_MAX - 0.5);
@@ -21,15 +19,15 @@ void print_mat(_Float16 *arr, int rows, int cols) {
 
 void read_x(_Float16 ret[256]) {
   for (uint64_t i = 0; i < 8; i++)
-    AMX_STX(PMASK & (uint64_t)(ret+i*32) | (i << 56));
+    AMX_STX(ret+i*32, i, 0);
 }
 
 void read_y(_Float16 ret[256]) {
   for (uint64_t i = 0; i < 8; i++)
-    AMX_STY(PMASK & (uint64_t)(ret+i*32) | (i << 56));
+    AMX_STY(ret+i*32, i, 0);
 }
 
 void read_z(_Float16 ret[2048]) {
   for (uint64_t i = 0; i < 64; i++)
-    AMX_STZ(PMASK & (uint64_t)(ret+i*32) | (i << 56));
+    AMX_STZ(ret+i*32, i, 0);
 }
