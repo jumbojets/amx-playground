@@ -1,4 +1,3 @@
-#include <mach/mach_time.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,22 +41,19 @@ void smol_matmul() {
 
 void accumulators() {
   uint64_t start, end;
-  mach_timebase_info_data_t timebase_info;
-  mach_timebase_info(&timebase_info);
 
   AMX_SET();
 
-  start = mach_absolute_time(); 
+  start = clock_gettime_nsec_np(CLOCK_REALTIME);
   for (uint64_t i = 0; i < ITERATIONS; i++) {
     AMX_FMA16(0, 0, 0, 0);
     AMX_FMA16(0, 0, 1, 0); // same throughput if we remove this line due to independence of z-registers
   }
-  end = mach_absolute_time(); 
+  end = clock_gettime_nsec_np(CLOCK_REALTIME);
 
   AMX_CLR();
 
-  uint64_t ns = (end-start)*timebase_info.numer/timebase_info.denom;
-  double s = ns*1e-9;
+  double s = (end-start)*1e-9;
 
   printf("%f\n", s);
 }

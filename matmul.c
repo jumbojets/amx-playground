@@ -10,7 +10,6 @@
 // * load 128 bytes into consecutive AMX registers (must be 128 byte aligned)
 // * multithreaded
 
-#include <mach/mach_time.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -66,21 +65,18 @@ int main() {
   srand(time(NULL));
 
   uint64_t start, end;
-  mach_timebase_info_data_t timebase_info;
-  mach_timebase_info(&timebase_info);
 
   for (int i = 0; i < ITERATIONS; i++) {
     rand_array(At, N*N);
     rand_array(B, N*N);
     memset(C, 0, N*N*sizeof(int16_t));
 
-    start = mach_absolute_time();
+    start = clock_gettime_nsec_np(CLOCK_REALTIME);
     matmul();
-    end = mach_absolute_time();
+    end = clock_gettime_nsec_np(CLOCK_REALTIME);
 
-    uint64_t ns = (end-start)*timebase_info.numer/timebase_info.denom;
     double gflop = (2.0*N*N*N)*1e-9;
-    double s = ns*1e-9;
+    double s = (end-start)*1e-9;
     printf("%f GFLOP/s -- %.2f ms\n", gflop/s, s*1e3);
 
 #if CHECK_EQUIV
