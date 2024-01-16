@@ -1,0 +1,9 @@
+F(2x2,3x3) winograd metal implementation
+
+parameters
+N: number of images
+HW: height/width of images
+C: number of channels
+F: number of filters
+
+currently, filter transformation is not fused with image transformation, multiplication and output transformation
