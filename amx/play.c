@@ -47,7 +47,7 @@ void accumulators() {
   start = clock_gettime_nsec_np(CLOCK_REALTIME);
   for (uint64_t i = 0; i < ITERATIONS; i++) {
     AMX_FMA16(0, 0, 0, 0);
-    AMX_FMA16(0, 0, 1, 0); // same throughput if we remove this line due to independence of z-registers
+    AMX_FMA16(0, 0, 1, 0); // same latency if we remove this line due to independence of z-registers
   }
   end = clock_gettime_nsec_np(CLOCK_REALTIME);
 
